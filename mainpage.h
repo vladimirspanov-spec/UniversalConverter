@@ -13,6 +13,9 @@ public:
     MainPage(QWidget *parent = nullptr);
     ~MainPage();
 
+public slots:
+    void onConvert();
+
 private:
     QTextEdit *value;
     QLineEdit *p;
