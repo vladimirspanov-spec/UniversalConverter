@@ -1,177 +1,151 @@
 #include "mainpage.h"
 #include <QLineEdit>
+#include <QPushButton>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QPushButton>
 #include <QLabel>
 #include <vector>
 #include <string>
 #include <algorithm>
+#include <map>
+#include <stdexcept>
+
 
 class BigInt {
 public:
-    BigInt(int n = 0);
+    BigInt(long long n = 0);
     BigInt(const std::string& s);
-    bool operator==(const BigInt& other) const;
-    bool operator!=(const BigInt& other) const;
-    bool operator<(const BigInt& other) const;
-    bool operator<=(const BigInt& other) const;
-    bool operator>(const BigInt& other) const;
-    bool operator>=(const BigInt& other) const;
-    BigInt operator+(const BigInt& other);
-    BigInt operator-(const BigInt& other);
-    BigInt operator*(const BigInt& other) const;
-    BigInt operator*(long long k) const;
+
+    bool operator==(const BigInt& o) const;
+    bool operator!=(const BigInt& o) const { return !(*this == o); }
+    bool operator<(const BigInt& o)  const;
+    bool operator<=(const BigInt& o) const { return !(o < *this); }
+    bool operator>(const BigInt& o)  const { return o < *this; }
+    bool operator>=(const BigInt& o) const { return !(*this < o); }
+
+    BigInt operator+(const BigInt& o) const;
+    BigInt operator-(const BigInt& o) const;
+    BigInt operator*(const BigInt& o) const;
+    BigInt operator*(long long k)     const;
+
     std::pair<BigInt,BigInt> divmod(const BigInt& d) const;
-    BigInt operator/(const BigInt& d) { return divmod(d).first; }
-    BigInt operator%(const BigInt& d) { return divmod(d).second; }
-    std::string toString();
+    BigInt operator/(const BigInt& d) const { return divmod(d).first; }
+    BigInt operator%(const BigInt& d) const { return divmod(d).second; }
+
     bool isZero() const;
+    std::string toString() const;
     static BigInt gcd(BigInt a, BigInt b);
 
 private:
-    std::vector<int> integer;
-    static const int BASE = 1000000000;
-    void normalize() {
-        while (integer.size() > 1 && integer.back() == 0) {
-            integer.pop_back();
-        }
-    }
+    std::vector<long long> d_;
+    static const long long BASE = 1000000000LL;
+    void trim() { while (d_.size() > 1 && d_.back() == 0) d_.pop_back(); }
 };
 
-BigInt::BigInt(int n) {
-    if (n == 0) integer.push_back(0);
-    while (n > 0) {
-        integer.push_back(n % BASE);
-        n /= BASE;
-    }
+BigInt::BigInt(long long n) {
+    if (n == 0) { d_.push_back(0); return; }
+    while (n > 0) { d_.push_back(n % BASE); n /= BASE; }
 }
 
 BigInt::BigInt(const std::string& s) {
-    integer.clear();
+    d_.clear();
     int i = (int)s.size();
     while (i > 0) {
         int from = std::max(0, i - 9);
-        integer.push_back(std::stoll(s.substr(from, i - from)));
+        d_.push_back(std::stoll(s.substr(from, i - from)));
         i = from;
     }
-    normalize();
+    trim();
 }
 
-bool BigInt::isZero() const { return integer.size() == 1 && integer[0] == 0; }
+bool BigInt::isZero() const { return d_.size() == 1 && d_[0] == 0; }
 
-bool BigInt::operator==(const BigInt& other) const {
-    return integer == other.integer;
-}
+bool BigInt::operator==(const BigInt& o) const { return d_ == o.d_; }
 
-bool BigInt::operator!=(const BigInt& other) const {
-    return !(integer == other.integer);
-}
-
-bool BigInt::operator<(const BigInt& other) const {
-    if (integer.size() != other.integer.size()) {
-        return integer.size() < other.integer.size();
-    }
-
-    for (int i = integer.size() - 1; i >= 0; --i) {
-        if (integer[i] < other.integer[i]) return true;
-        else if (integer[i] > other.integer[i]) return false;
-    }
+bool BigInt::operator<(const BigInt& o) const {
+    if (d_.size() != o.d_.size()) return d_.size() < o.d_.size();
+    for (int i = (int)d_.size()-1; i >= 0; --i)
+        if (d_[i] != o.d_[i]) return d_[i] < o.d_[i];
     return false;
 }
 
-bool BigInt::operator<=(const BigInt& other) const {
-    return *this == other || *this < other;
-}
-
-bool BigInt::operator>(const BigInt& other) const {
-    return !(*this <= other);
-}
-
-bool BigInt::operator>=(const BigInt& other) const {
-    return !(*this < other);
-}
-
-BigInt BigInt::operator+(const BigInt& other) {
-    int carry = 0;
-    BigInt ans;
-    for (size_t i = 0; i < std::max(integer.size(), other.integer.size()) || carry; ++i) {
-        if (i == integer.size()) integer.push_back(0);
-        long long c = integer[i] + carry + (i < other.integer.size() ? other.integer[i] : 0);
-        carry = c / BASE;
-        c %= BASE;
-        ans.integer.push_back(c);
+BigInt BigInt::operator+(const BigInt& o) const {
+    BigInt res; res.d_.clear();
+    long long carry = 0;
+    for (size_t i = 0; i < std::max(d_.size(), o.d_.size()) || carry; ++i) {
+        long long s = carry;
+        if (i < d_.size())   s += d_[i];
+        if (i < o.d_.size()) s += o.d_[i];
+        res.d_.push_back(s % BASE);
+        carry = s / BASE;
     }
-    return ans;
+    return res;
 }
 
-BigInt BigInt::operator-(const BigInt& other) {
-    if (other > *this) return BigInt(0);
-    int carry = 0;
-    BigInt ans;
-    for (size_t i = 0; i < other.integer.size() || carry; ++i) {
-        long long c = integer[i] - carry - (i < other.integer.size() ? other.integer[i] : 0);
-        carry = 0;
-        if (c < 0) {
-            c += BASE;
-            carry = 1;
-        }
-        ans.integer.push_back(c);
+BigInt BigInt::operator-(const BigInt& o) const {
+    BigInt res; res.d_.clear();
+    long long borrow = 0;
+    for (size_t i = 0; i < d_.size(); ++i) {
+        long long s = d_[i] - borrow - (i < o.d_.size() ? o.d_[i] : 0);
+        borrow = 0;
+        if (s < 0) { s += BASE; borrow = 1; }
+        res.d_.push_back(s);
     }
-    return ans;
+    res.trim();
+    return res;
 }
 
-BigInt BigInt::operator*(const BigInt& other) const {
-    BigInt ans;
-    ans.integer.resize(integer.size() + other.integer.size(), 0);
-    for (size_t i = 0; i < integer.size(); ++i) {
+BigInt BigInt::operator*(const BigInt& o) const {
+    BigInt res; res.d_.assign(d_.size() + o.d_.size(), 0);
+    for (size_t i = 0; i < d_.size(); ++i) {
         long long carry = 0;
-        for (size_t j = 0; j < other.integer.size(); ++j) {
-            long long c = ans.integer[i + j] + carry + (long long)integer[i] * (j < other.integer.size() ? other.integer[j] : 0);
-            ans.integer[i + j] = c & BASE;
-            carry = c / BASE;
+        for (size_t j = 0; j < o.d_.size() || carry; ++j) {
+            __int128 cur = (__int128)res.d_[i + j] + carry;
+            if (j < o.d_.size()) cur += (__int128)d_[i] * o.d_[j];
+            res.d_[i + j] = (long long)(cur % BASE);
+            carry = (long long)(cur / BASE);
         }
     }
-    ans.normalize();
-    return ans;
+    res.trim();
+    return res;
 }
 
 BigInt BigInt::operator*(long long k) const {
     if (k == 0) return BigInt(0);
-    BigInt res; res.integer.clear();
+    BigInt res; res.d_.clear();
     long long carry = 0;
-    for (size_t i = 0; i < integer.size() || carry; ++i) {
-        long long cur = carry + (i < integer.size() ? integer[i] * k : 0LL);
-        res.integer.push_back(cur % BASE);
+    for (size_t i = 0; i < d_.size() || carry; ++i) {
+        long long cur = carry + (i < d_.size() ? d_[i] * k : 0LL);
+        res.d_.push_back(cur % BASE);
         carry = cur / BASE;
     }
-    res.normalize();
+    res.trim();
     return res;
 }
 
-std::pair<BigInt,BigInt> BigInt::divmod(const BigInt& d) const {
-    if (d.isZero() || *this < d) return {BigInt(0), *this};
+std::pair<BigInt,BigInt> BigInt::divmod(const BigInt& dv) const {
+    if (dv.isZero() || *this < dv) return {BigInt(0), *this};
     BigInt q, r;
-    q.integer.resize(integer.size(), 0);
-    for (int i = (int)integer.size()-1; i >= 0; --i) {
-        r.integer.insert(r.integer.begin(), integer[i]);
-        r.normalize();
+    q.d_.resize(d_.size(), 0);
+    for (int i = (int)d_.size()-1; i >= 0; --i) {
+        r.d_.insert(r.d_.begin(), d_[i]);
+        r.trim();
         long long lo = 0, hi = BASE - 1;
         while (lo < hi) {
             long long mid = lo + (hi - lo + 1) / 2;
-            if (d * mid <= r) lo = mid; else hi = mid - 1;
+            if (dv * mid <= r) lo = mid; else hi = mid - 1;
         }
-        q.integer[i] = lo;
-        r = r - d * lo;
+        q.d_[i] = lo;
+        r = r - dv * lo;
     }
-    q.normalize();
+    q.trim();
     return {q, r};
 }
 
-std::string BigInt::toString() {
-    std::string s = std::to_string(integer.back());
-    for (int i = (int)integer.size()-2; i >= 0; --i) {
-        std::string part = std::to_string(integer[i]);
+std::string BigInt::toString() const {
+    std::string s = std::to_string(d_.back());
+    for (int i = (int)d_.size()-2; i >= 0; --i) {
+        std::string part = std::to_string(d_[i]);
         s += std::string(9 - part.size(), '0') + part;
     }
     return s;
@@ -182,8 +156,8 @@ BigInt BigInt::gcd(BigInt a, BigInt b) {
     return a;
 }
 
+// ============================================================
 
-//================================================================
 
 class BigFraction {
 public:
@@ -196,7 +170,7 @@ public:
         long long base);
 
     std::string toBase(long long q, size_t maxLen) const;
-    bool isZero() { return num_.isZero(); }
+    bool isZero() const { return num_.isZero(); }
 
 private:
     BigInt num_, den_;
@@ -219,7 +193,6 @@ BigFraction BigFraction::fromDigits(
 {
     BigInt B(base);
 
-    // Целая часть
     BigInt intVal(0);
     for (long long dv : intDigits) intVal = intVal * B + BigInt(dv);
 
@@ -232,12 +205,10 @@ BigFraction BigFraction::fromDigits(
     for (int i = 0; i < preLen; ++i)
         preValue = preValue * B + BigInt(fracDigits[i]);
 
-    // Bpre = base^preLen
     BigInt Bpre(1);
     for (int i = 0; i < preLen; ++i) Bpre = Bpre * B;
 
     if (periodLen == 0) {
-        // Конечная дробь: intVal + preValue / Bpre
         return BigFraction(intVal * Bpre + preValue, Bpre);
     }
 
@@ -285,7 +256,6 @@ std::string BigFraction::toBase(long long q, size_t maxLen) const {
     result += ".";
     size_t len = result.size();
 
-    // Длинное деление с обнаружением периода
     std::map<std::string, size_t> seen;
     std::vector<std::string> fracParts;
     bool truncated = false;
@@ -318,7 +288,9 @@ std::string BigFraction::toBase(long long q, size_t maxLen) const {
 
 // ============================================================
 
-static std::vector<long long> parseDigits(const std::string& s, long long base, size_t& pos, bool stopAtDot, bool stopAtParen)
+
+static std::vector<long long> parseDigits(const std::string& s, long long base,
+                                          size_t& pos, bool stopAtDot, bool stopAtParen)
 {
     std::vector<long long> digits;
     while (pos < s.size()) {
@@ -386,7 +358,8 @@ static ParsedNumber parseNumber(const std::string& s, long long base) {
     return pn;
 }
 
-//===========================================================
+// ============================================================
+
 
 static const size_t MAX_OUTPUT_LENGTH = 100000;
 
@@ -397,7 +370,7 @@ MainPage::MainPage(QWidget *parent) : QWidget(parent)
 
     value = new QTextEdit;
     value->setFixedSize(250, 60);
-    value->setPlaceholderText("Например: 1.A(B)  или  [222][223]");
+    value->setPlaceholderText("Введите число");
 
     p = new QLineEdit; p->setFixedSize(60, 32); p->setPlaceholderText("p");
     q = new QLineEdit; q->setFixedSize(60, 32); q->setPlaceholderText("q");

@@ -13,7 +13,7 @@ public:
     MainPage(QWidget *parent = nullptr);
     ~MainPage();
 
-public slots:
+private slots:
     void onConvert();
 
 private:
