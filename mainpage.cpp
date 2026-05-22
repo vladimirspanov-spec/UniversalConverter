@@ -9,6 +9,7 @@
 #include <algorithm>
 #include <map>
 #include <stdexcept>
+#include <cmath>
 
 
 class BigInt {
@@ -27,6 +28,7 @@ public:
     BigInt operator-(const BigInt& o) const;
     BigInt operator*(const BigInt& o) const;
     BigInt operator*(long long k)     const;
+    BigInt operator&(const BigInt& o) const;
 
     std::pair<BigInt,BigInt> divmod(const BigInt& d) const;
     BigInt operator/(const BigInt& d) const { return divmod(d).first; }
@@ -40,6 +42,12 @@ private:
     std::vector<long long> d_;
     static const long long BASE = 1000000000LL;
     void trim() { while (d_.size() > 1 && d_.back() == 0) d_.pop_back(); }
+    BigInt shift(int k) {
+        for (int i = 0; i < k; ++i) {
+            d_.insert(d_.begin(), 0);
+        }
+        return *this;
+    }
 };
 
 BigInt::BigInt(long long n) {
@@ -95,7 +103,8 @@ BigInt BigInt::operator-(const BigInt& o) const {
     return res;
 }
 
-BigInt BigInt::operator*(const BigInt& o) const {
+
+BigInt BigInt::operator&(const BigInt& o) const {
     BigInt res; res.d_.assign(d_.size() + o.d_.size(), 0);
     for (size_t i = 0; i < d_.size(); ++i) {
         long long carry = 0;
@@ -107,6 +116,19 @@ BigInt BigInt::operator*(const BigInt& o) const {
         }
     }
     res.trim();
+    return res;
+}
+
+BigInt BigInt::operator*(const BigInt& o) const{
+    if (this->d_.size() <= 1 || o.d_.size() <= 1) {
+        return *this & o;
+    }
+    int k = std::min(this->d_.size()/2, o.d_.size()/2);
+    BigInt a1; a1.d_ = std::vector<long long>(this->d_.begin(), this->d_.begin() + k);
+    BigInt a2; a2.d_ = std::vector<long long>(this->d_.begin() + k, this->d_.end());
+    BigInt b1; b1.d_ = std::vector<long long>(o.d_.begin(), o.d_.begin() + k);
+    BigInt b2; b2.d_ = std::vector<long long>(o.d_.begin() + k, o.d_.end());
+    BigInt res = a1 * b1 + (a1 * b2 + a2 * b1).shift(k) + (a2 * b2).shift(2 * k);
     return res;
 }
 
